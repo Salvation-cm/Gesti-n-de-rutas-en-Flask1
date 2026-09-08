@@ -1,0 +1,90 @@
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# CORREGIDO: Añadí el campo 'prioridad' a todas las tareas
+tareas = [
+    {'id':1, 'tarea':'Aprender Flask', 'completada':False, 'prioridad':'alta'},
+    {'id':2, 'tarea':'Practicar Flask', 'completada':False, 'prioridad':'media'}
+]
+
+# GET - Obtener todas las tareas
+@app.route("/api/tareas", methods=['GET'])
+def listar_tareas():
+    return jsonify(tareas)
+
+# GET - Obtener una tarea específica
+@app.route("/api/tareas/<int:tarea_id>", methods=['GET'])
+def obtener_tarea(tarea_id):
+    tarea = None
+    for t in tareas:
+        if t['id'] == tarea_id:
+            tarea = t
+            break
+    if tarea:
+        return jsonify(tarea)
+    return jsonify({'error':'Tarea no encontrada'}), 404
+
+# POST - Crear una tarea
+@app.route("/api/tareas", methods=['POST'])
+def crear_tareas():
+    nueva_tarea = {
+        'id': len(tareas) + 1,
+        'tarea': request.json.get('tarea', ''),  # CORREGIDO: 'tarea' en lugar de 'tareas'
+        'completada': request.json.get('completada', False),
+        'prioridad': request.json.get('prioridad', 'media')  # AÑADIDO: campo prioridad
+    }
+    tareas.append(nueva_tarea)
+    return jsonify(nueva_tarea), 201
+
+# PUT - Actualizar una tarea existente
+@app.route('/api/tareas/<int:tarea_id>', methods=['PUT'])
+def actualizar_tarea(tarea_id):
+    tarea = None
+    for t in tareas:
+        if t['id'] == tarea_id:
+            tarea = t
+            break
+    
+    if not tarea:
+        return jsonify({'error': 'Tarea no encontrada'}), 404
+    
+    # Actualizar solo los campos que vienen en la petición
+    if 'tarea' in request.json:
+        tarea['tarea'] = request.json['tarea']
+    if 'completada' in request.json:
+        tarea['completada'] = request.json['completada']
+    if 'prioridad' in request.json:
+        tarea['prioridad'] = request.json['prioridad']
+    
+    return jsonify(tarea), 200
+
+# DELETE - Eliminar tarea
+@app.route('/api/tareas/<int:tarea_id>', methods=['DELETE'])
+def eliminar_tarea(tarea_id):
+    global tareas
+    tareas = [t for t in tareas if t['id'] != tarea_id]
+    return jsonify({'mensaje':'Tarea eliminada'}), 200
+
+# NUEVA FUNCIONALIDAD 1: Buscar tareas por palabra clave
+@app.route('/api/tareas/buscar', methods=['GET'])
+def buscar_tareas():
+    palabra_clave = request.args.get('q', '').lower()
+    if not palabra_clave:
+        return jsonify({'error': 'Parámetro de búsqueda "q" requerido'}), 400
+    
+    resultados = [t for t in tareas if palabra_clave in t['tarea'].lower()]
+    return jsonify(resultados), 200
+
+# NUEVA FUNCIONALIDAD 2: Filtrar tareas por prioridad (con parámetro en ruta)
+@app.route('/api/tareas/prioridad/<prioridad>', methods=['GET'])
+def filtrar_por_prioridad(prioridad):
+    prioridades_validas = ['baja', 'media', 'alta']
+    if prioridad not in prioridades_validas:
+        return jsonify({'error': 'Prioridad inválida. Usar: baja, media o alta'}), 400
+
+    resultados = [t for t in tareas if t['prioridad'] == prioridad]
+    return jsonify(resultados), 200
+
+if __name__ == "__main__":
+    app.run(debug=True)
